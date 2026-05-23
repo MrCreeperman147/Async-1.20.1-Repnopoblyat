@@ -59,7 +59,7 @@ public class ParallelProcessor {
     */
     public static void setupThreadPool(int parallelism, Class<?> asyncClass) {
         isShuttingDown = false;
-        mcThreadTracker.remove("Async-Tick"); //clear any old references to avoid memory leaks and false positives in isServerExecutionThread after reloads
+        mcThreadTracker.remove("Async-Tick"); // clear any old references to avoid memory leaks and false positives in isAsyncThread() after reloads
 
         ForkJoinPool.ForkJoinWorkerThreadFactory tickThreadFactory = pool -> {
             ForkJoinWorkerThread worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
@@ -97,8 +97,21 @@ public class ParallelProcessor {
         return found;
     }
 
-    public static boolean isServerExecutionThread() {
+    /**
+     * Returns true if the current thread is one of the async tick pool threads.
+     * NOTE: this is the OPPOSITE of the vanilla isSameThread() / isMainThread() semantics.
+     * Use {@link #isMainThread()} to check for the server thread.
+     */
+    public static boolean isAsyncThread() {
         return isThreadInPool(Thread.currentThread());
+    }
+
+    /**
+     * Returns true if the current thread is the Minecraft server (main) thread.
+     */
+    public static boolean isMainThread() {
+        MinecraftServer srv = server;
+        return srv != null && Thread.currentThread() == srv.getRunningThread();
     }
 
     public static void callEntityTick(ServerLevel world, Entity entity) {
@@ -246,7 +259,7 @@ public class ParallelProcessor {
     }
 
     public static void postEntityTick() {
-        if (!AsyncConfig.isDisabled) return;
+        if (AsyncConfig.isDisabled) return;
 
         List<CompletableFuture<?>> entityTasks = new ArrayList<>();
         CompletableFuture<?> future;

@@ -66,6 +66,15 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
                 )
                 .thenCompose(f -> f);
 
+        // Pomper le mainThreadProcessor pendant l'attente pour éviter le deadlock circulaire :
+        // le thread async ne doit jamais bloquer sur .join() pendant que le main thread
+        // attend lui-même la fin des futures async (postEntityTick).
+        while (!future.isDone()) {
+            if (!this.mainThreadProcessor.pollTask()) {
+                Thread.onSpinWait();
+            }
+        }
+
         Either<ChunkAccess, ChunkHolder.ChunkLoadingFailure> resultEither = future.join();
 
         if (resultEither != null) {

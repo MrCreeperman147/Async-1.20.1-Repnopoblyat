@@ -16,7 +16,7 @@ public class NaturalSpawnerMixin {
             at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;getProfiler()Lnet/minecraft/util/profiling/ProfilerFiller;")
     )
     private static ProfilerFiller async$safeProfiler(ServerLevel instance) {
-        return ParallelProcessor.isServerExecutionThread()
+        return ParallelProcessor.isAsyncThread()
                 ? InactiveProfiler.INSTANCE
                 : instance.getProfiler();
     }

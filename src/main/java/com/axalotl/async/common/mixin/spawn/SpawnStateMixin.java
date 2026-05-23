@@ -54,27 +54,28 @@ public abstract class SpawnStateMixin {
         EntityType<?> entityType = mob.getType();
         BlockPos blockPos = mob.blockPosition();
 
-        double charge;
-        if (blockPos.equals(this.lastCheckedPos) && entityType == this.lastCheckedType) {
-            charge = this.lastCharge;
-        } else {
-            MobSpawnSettings.MobSpawnCost cost = NaturalSpawner.getRoughBiome(blockPos, chunk)
-                    .getMobSettings()
-                    .getMobSpawnCost(entityType);
-            charge = cost != null ? cost.charge() : 0.0;
-        }
-
         MobCategory category = entityType.getCategory();
 
-        // Écriture atomique lock-free — source de vérité pour les accès async
+        // Snapshot des champs vanilla non-volatile sous lock pour éviter les races
+        // lastCheckedPos/lastCheckedType/lastCharge sont écrits par canSpawnForCategory (vanilla, sans sync)
+        final double charge;
+        synchronized (async$lock) {
+            if (blockPos.equals(this.lastCheckedPos) && entityType == this.lastCheckedType) {
+                charge = this.lastCharge;
+            } else {
+                MobSpawnSettings.MobSpawnCost cost = NaturalSpawner.getRoughBiome(blockPos, chunk)
+                        .getMobSettings()
+                        .getMobSpawnCost(entityType);
+                charge = cost != null ? cost.charge() : 0.0;
+            }
+            // Mise à jour du champ vanilla sous le même lock — compatibilité mods tiers
+            this.mobCategoryCounts.addTo(category, 1);
+        }
+
+        // Écritures sur structures déjà thread-safe (CopyOnWriteArrayList, ConcurrentHashMap via mixins)
         this.spawnPotential.addCharge(blockPos, charge);
         async$concurrentCounts.computeIfAbsent(category, k -> new AtomicInteger(0)).incrementAndGet();
         this.localMobCapCalculator.addMob(new ChunkPos(blockPos), category);
-
-        // Mise à jour du champ vanilla sous lock — pour la compatibilité avec les mods tiers
-        synchronized (async$lock) {
-            this.mobCategoryCounts.addTo(category, 1);
-        }
     }
 
     @WrapOperation(
@@ -88,7 +89,7 @@ public abstract class SpawnStateMixin {
 
         Thread current = Thread.currentThread();
         boolean isMainThread = current == ParallelProcessor.getServer().getRunningThread();
-        boolean isAsyncThread = ParallelProcessor.isServerExecutionThread();
+        boolean isAsyncThread = ParallelProcessor.isAsyncThread();
 
         if (!isMainThread && !isAsyncThread) {
             ParallelProcessor.LOGGER.warn(
