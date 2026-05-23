@@ -64,6 +64,7 @@ public class AsyncConfigForge {
         synchronizedEntities.setValue(entities.isEmpty()
                 ? getDefaultSynchronizedEntities()
                 : entities);
+
     }
 
     public static void saveConfig() {

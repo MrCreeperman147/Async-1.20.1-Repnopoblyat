@@ -45,12 +45,18 @@ public class ParallelProcessor {
     private static final Object ENTITY_ADD_LOCK = new Object();
     private static final ConcurrentLinkedQueue<CompletableFuture<Void>> spawnQueue = new ConcurrentLinkedQueue<>();
 
+    /**
+     * Some entities have ticking code that is not thread safe, or have weird interactions with the world that can cause
+     * concurrency issues. For now, we'll just blacklist those entities from being ticked asynchronously. In the future,
+     * we may want to look into making some of these entities work with async ticking, but for now this is a good start.
+     */
+    /*
     public static final Set<Class<?>> BLOCKED_ENTITIES = Set.of(
             FallingBlockEntity.class,
             Shulker.class,
             Boat.class
     );
-
+    */
     public static void setupThreadPool(int parallelism, Class<?> asyncClass) {
         isShuttingDown = false;
 
@@ -115,11 +121,12 @@ public class ParallelProcessor {
         }
 
         UUID entityId = entity.getUUID();
-        boolean requiresSyncTick = AsyncConfig.disabled.getValue() ||
+        boolean requiresSyncTick = AsyncConfig.isDisabled ||
                 entity instanceof Projectile ||
                 entity instanceof AbstractMinecart ||
                 entity instanceof ServerPlayer ||
-                BLOCKED_ENTITIES.contains(entity.getClass()) ||
+                //_ENTITIES.contains(entity.getClass()) ||
+                (entity instanceof FallingBlockEntity || entity instanceof Shulker || entity instanceof Boat) || //cover child classes of the blocked entities
                 blacklistedEntity.contains(entityId) ||
                 AsyncConfig.isEntitySynchronized(EntityType.getKey(entity.getType()));
 
@@ -179,7 +186,7 @@ public class ParallelProcessor {
             return;
         }
 
-        if (isShuttingDown || AsyncConfig.disabled.getValue() || !AsyncConfig.enableAsyncSpawn.getValue()) {
+        if (isShuttingDown || AsyncConfig.isDisabled || !AsyncConfig.isAsyncSpawnEnabled) {
             NaturalSpawner.spawnForChunk(level, chunk, spawnState, spawnAnimals, spawnMonsters, rareSpawn);
             return;
         }
@@ -201,7 +208,7 @@ public class ParallelProcessor {
     }
 
     public static void asyncDespawn(Entity entity) {
-        if (isShuttingDown || AsyncConfig.disabled.getValue() || !AsyncConfig.enableAsyncSpawn.getValue()) {
+        if (isShuttingDown || AsyncConfig.isDisabled || !AsyncConfig.isAsyncSpawnEnabled) {
             entity.checkDespawn();
             return;
         }
@@ -222,7 +229,7 @@ public class ParallelProcessor {
     }
 
     public static void postEntityTick() {
-        if (!AsyncConfig.disabled.getValue()) return;
+        if (!AsyncConfig.isDisabled) return;
 
         List<CompletableFuture<?>> entityTasks = new ArrayList<>();
         CompletableFuture<?> future;

@@ -27,13 +27,22 @@ public class AsyncConfig {
     private static final Set<String> exactEntities = new HashSet<>();
     private static final Set<String> namespaceWildcards = new HashSet<>();
 
+    // These are used by mixins so need to be volatile to ensure visibility across threads
+    public static volatile boolean isDisabled = false;
+    public static volatile boolean isAsyncSpawnEnabled = true;
+    public static volatile boolean isAsyncRandomTicksEnabled = false;
+
 
     public static Set<String> getDefaultSynchronizedEntities() {
         final Set<String> defaultSynchronizedEntities = new HashSet<>(ModCompatibility.addUnsupportedMods());
         defaultSynchronizedEntities.addAll(Set.of(
                 "minecraft:tnt",
                 "minecraft:item",
-                "minecraft:experience_orb"
+                "minecraft:experience_orb",
+                "minecraft:falling_block",
+                "minecraft:shulker",
+                "minecraft:boat",
+                "minecraft:chest_boat"
         ));
         return defaultSynchronizedEntities;
     }
@@ -120,6 +129,11 @@ public class AsyncConfig {
 
     public static void onConfigLoaded() {
         rebuildCaches();
+
+        isDisabled = disabled.getValue();
+        isAsyncSpawnEnabled = enableAsyncSpawn.getValue();
+        isAsyncRandomTicksEnabled = enableAsyncRandomTicks.getValue();
+
         LOGGER.info("Configuration loaded.");
     }
 

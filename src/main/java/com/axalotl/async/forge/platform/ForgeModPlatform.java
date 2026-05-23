@@ -1,5 +1,6 @@
 package com.axalotl.async.forge.platform;
 
+import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.common.platform.ModPlatform;
 import com.axalotl.async.forge.config.AsyncConfigForge;
 import net.minecraftforge.fml.loading.FMLLoader;
@@ -14,7 +15,7 @@ public class ForgeModPlatform implements ModPlatform {
     @Override
     public void reloadConfig() {
         AsyncConfigForge.loadConfig();
-        com.axalotl.async.common.config.AsyncConfig.onConfigLoaded();
+        AsyncConfig.onConfigLoaded();
     }
 
     @Override

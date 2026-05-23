@@ -5,6 +5,7 @@ import com.axalotl.async.common.ExplosionProcessor;
 import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.commands.AsyncCommand;
 import com.axalotl.async.common.commands.StatsCommand;
+import com.axalotl.async.common.config.AsyncConfig;
 import com.axalotl.async.forge.platform.ForgePermissions;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.logging.LogUtils;
@@ -41,6 +42,7 @@ public class AsyncForge extends AsyncCommon {
         LOGGER.info("Async Setting up thread-pool...");
         this.initialize();
         loadConfig();
+        AsyncConfig.onConfigLoaded();
         StatsCommand.runStatsThread();
         ExplosionProcessor.start();
         ParallelProcessor.setServer(event.getServer());
