@@ -13,6 +13,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Mixin(AttributeInstance.class)
@@ -21,21 +23,21 @@ public class AttributeInstanceMixin {
     @Shadow
     @Final
     @Mutable
-    private Map<ResourceLocation, AttributeModifier> modifierById;
+    private Map<UUID, AttributeModifier> modifierById;
 
     @Shadow
     @Final
     @Mutable
-    private Map<ResourceLocation, AttributeModifier> permanentModifiers;
+    private Set<AttributeModifier> permanentModifiers;
 
     @Shadow
-    private final Map<AttributeModifier.Operation, Map<ResourceLocation, AttributeModifier>> modifiersByOperation = ConcurrentCollections.newHashMap();
+    @Final
+    @Mutable
+    private Map<AttributeModifier.Operation, Set<AttributeModifier>> modifiersByOperation;
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void makeThreadSafe(CallbackInfo ci) {
-        modifierById = new ConcurrentHashMap<>(modifierById);
-        permanentModifiers = new ConcurrentHashMap<>(permanentModifiers);
+        modifierById = new java.util.concurrent.ConcurrentHashMap<>(modifierById);
+        permanentModifiers = ConcurrentCollections.newHashSet();
     }
-
-    //parreleliseeseseeseieiles get modifiers map lolololo not herekesoifgjsdfujiogzdjnfuio
 }

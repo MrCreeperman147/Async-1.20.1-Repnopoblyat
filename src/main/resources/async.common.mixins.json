@@ -3,6 +3,7 @@
   "minVersion": "0.8",
   "package": "com.axalotl.async.common.mixin",
   "compatibilityLevel": "JAVA_17",
+  "refmap": "async.refmap.json",
   "mixins": [
     "entity.AllayMixin",
     "entity.AnimalMixin",

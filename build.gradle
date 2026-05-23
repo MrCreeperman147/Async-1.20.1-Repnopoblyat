@@ -52,7 +52,6 @@ dependencies {
     implementation("com.github.bawnorton.mixinsquared:mixinsquared-forge:${mixinsquared_version}") { transitive = false }
     compileOnly("com.github.bawnorton.mixinsquared:mixinsquared-common:${mixinsquared_version}")
     annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-common:${mixinsquared_version}")
-    annotationProcessor "org.spongepowered:mixin:${mixin_version}:processor"
 
     // ASM
     implementation "org.ow2.asm:asm:9.5"
@@ -101,6 +100,10 @@ jar {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    options.compilerArgs += [
+            "-AoutRefMapFile=${project.file('src/main/resources/async.refmap.json')}",
+            "-AmixinConfigs=async.common.mixins.json,async.forge.mixins.json"
+    ]
 }
 
 idea.module { downloadJavadoc = downloadSources = true }
