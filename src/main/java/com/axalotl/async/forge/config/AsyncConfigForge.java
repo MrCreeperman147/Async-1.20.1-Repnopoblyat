@@ -18,6 +18,7 @@ public class AsyncConfigForge {
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> synchronizedEntitiesLocal;
     private static final ForgeConfigSpec.ConfigValue<Boolean> enableAsyncSpawnLocal;
     private static final ForgeConfigSpec.ConfigValue<Boolean> enableAsyncRandomTicksLocal;
+    private static final ForgeConfigSpec.ConfigValue<List<? extends String>> unsupportedModsLocal;
 
     static {
         BUILDER.push("Async Config");
@@ -44,6 +45,17 @@ public class AsyncConfigForge {
         enableAsyncRandomTicksLocal = BUILDER.comment("Experimental! Enables async random ticks.")
                 .define(enableAsyncRandomTicks.getKey(), enableAsyncRandomTicks.getValue());
 
+        unsupportedModsLocal = BUILDER.comment("""
+                List of mod IDs whose entities should be forced to tick synchronously.
+                Any mod listed here will have its entire namespace (modid:*) added to
+                synchronizedEntities automatically if the mod is loaded.
+                Example: ["create", "fowlplay"]""")
+                .defineListAllowEmpty(
+                        unsupportedMods.getKey(),
+                        () -> new ArrayList<>(unsupportedMods.getValue()),
+                        obj -> obj instanceof String
+                );
+
         BUILDER.pop();
         SPEC = BUILDER.build();
         LOGGER.info("Configuration initialized.");
@@ -54,6 +66,7 @@ public class AsyncConfigForge {
         maxThreads.setValue(maxThreadsLocal.get());
         enableAsyncSpawn.setValue(enableAsyncSpawnLocal.get());
         enableAsyncRandomTicks.setValue(enableAsyncRandomTicksLocal.get());
+        unsupportedMods.setValue(new ArrayList<>(unsupportedModsLocal.get()));
 
         List<? extends String> entries = synchronizedEntitiesLocal.get();
         Set<String> entities = new HashSet<>();
@@ -73,6 +86,9 @@ public class AsyncConfigForge {
         enableAsyncSpawnLocal.set(enableAsyncSpawn.getValue());
         enableAsyncRandomTicksLocal.set(enableAsyncRandomTicks.getValue());
         synchronizedEntitiesLocal.set(new ArrayList<>(synchronizedEntities.getValue()));
+        unsupportedModsLocal.set(new ArrayList<>(unsupportedMods.getValue()));
+
+
         SPEC.save();
         onConfigLoaded();
     }

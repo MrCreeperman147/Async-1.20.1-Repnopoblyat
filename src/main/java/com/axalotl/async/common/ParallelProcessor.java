@@ -59,6 +59,7 @@ public class ParallelProcessor {
     */
     public static void setupThreadPool(int parallelism, Class<?> asyncClass) {
         isShuttingDown = false;
+        mcThreadTracker.remove("Async-Tick"); //clear any old references to avoid memory leaks and false positives in isServerExecutionThread after reloads
 
         ForkJoinPool.ForkJoinWorkerThreadFactory tickThreadFactory = pool -> {
             ForkJoinWorkerThread worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
@@ -82,9 +83,18 @@ public class ParallelProcessor {
     }
 
     private static boolean isThreadInPool(Thread thread) {
-        return mcThreadTracker.getOrDefault("Async-Tick", Set.of()).stream()
-                .map(WeakReference::get)
-                .anyMatch(thread::equals);
+        Set<WeakReference<Thread>> refs = mcThreadTracker.getOrDefault("Async-Tick", Set.of());
+        boolean found = false;
+        for (Iterator<WeakReference<Thread>> it = refs.iterator(); it.hasNext(); ) {
+            Thread t = it.next().get();
+            if (t == null) {
+                it.remove(); // clean dead references
+            } else if (t == thread) {
+                found = true;
+                // no break because we want to clean up all dead references while we're at it
+            }
+        }
+        return found;
     }
 
     public static boolean isServerExecutionThread() {
@@ -134,20 +144,27 @@ public class ParallelProcessor {
             return true;
         }
 
-        if (portalTickSyncMap.containsKey(entityId)) {
-            int ticksLeft = portalTickSyncMap.get(entityId);
-            if (ticksLeft > 0) {
-                portalTickSyncMap.put(entityId, ticksLeft - 1);
-                return true;
-            } else {
-                portalTickSyncMap.remove(entityId);
+        Integer[] shouldSync = {null};
+        portalTickSyncMap.compute(entityId, (id, ticksLeft) -> {
+            if (ticksLeft != null) {
+                if (ticksLeft > 0) {
+                    shouldSync[0] = ticksLeft - 1;
+                    return ticksLeft - 1;
+                }
+                return null; // remove from map when it hits 0
             }
+            return null;
+        });
+
+        if (shouldSync[0] != null) {
+            return true;
         }
 
         if (isPortalTickRequired(entity)) {
             portalTickSyncMap.put(entityId, 39);
             return true;
         }
+
         return false;
     }
 

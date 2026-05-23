@@ -20,6 +20,7 @@ public class AsyncConfig {
     public static Map.Entry<String, Integer> maxThreads = new AbstractMap.SimpleEntry<>("paraMax", -1);
     public static Map.Entry<String, Boolean> enableAsyncSpawn = new AbstractMap.SimpleEntry<>("enableAsyncSpawn", true);
     public static Map.Entry<String, Boolean> enableAsyncRandomTicks = new AbstractMap.SimpleEntry<>("enableAsyncRandomTicks", false);
+    public static Map.Entry<String, List<String>> unsupportedMods = new AbstractMap.SimpleEntry<>("unsupportedMods", new ArrayList<>(List.of("create", "fowlplay")));
     public static Map.Entry<String, Set<String>> synchronizedEntities = new AbstractMap.SimpleEntry<>("synchronizedEntities", getDefaultSynchronizedEntities());
 
     // Caches

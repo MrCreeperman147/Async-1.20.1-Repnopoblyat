@@ -1,6 +1,9 @@
 package com.axalotl.async.common.mixin.spawn;
 
+import com.axalotl.async.common.ParallelProcessor;
 import com.axalotl.async.common.config.AsyncConfig;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.EntityType;
@@ -19,6 +22,10 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Mixin(NaturalSpawner.SpawnState.class)
 public abstract class SpawnStateMixin {
@@ -32,6 +39,9 @@ public abstract class SpawnStateMixin {
 
     @Unique
     private final Object async$lock = new Object();
+
+    @Unique
+    private final ConcurrentHashMap<MobCategory, AtomicInteger> async$concurrentCounts = new ConcurrentHashMap<>();
 
     @Inject(method = "afterSpawn", at = @At("HEAD"), cancellable = true)
     private void async$afterSpawn(Mob mob, ChunkAccess chunk, CallbackInfo ci) {
@@ -56,10 +66,40 @@ public abstract class SpawnStateMixin {
 
         MobCategory category = entityType.getCategory();
 
+        // Écriture atomique lock-free — source de vérité pour les accès async
+        this.spawnPotential.addCharge(blockPos, charge);
+        async$concurrentCounts.computeIfAbsent(category, k -> new AtomicInteger(0)).incrementAndGet();
+        this.localMobCapCalculator.addMob(new ChunkPos(blockPos), category);
+
+        // Mise à jour du champ vanilla sous lock — pour la compatibilité avec les mods tiers
         synchronized (async$lock) {
-            this.spawnPotential.addCharge(blockPos, charge);
             this.mobCategoryCounts.addTo(category, 1);
-            this.localMobCapCalculator.addMob(new ChunkPos(blockPos), category);
         }
+    }
+
+    @WrapOperation(
+            method = "canSpawnForCategory",
+            at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/objects/Object2IntOpenHashMap;getInt(Ljava/lang/Object;)I")
+    )
+    private int async$concurrentGetCount(Object2IntOpenHashMap<MobCategory> map, Object category, Operation<Integer> original) {
+        if (AsyncConfig.disabled.getValue() || !AsyncConfig.enableAsyncSpawn.getValue()) {
+            return original.call(map, category);
+        }
+
+        Thread current = Thread.currentThread();
+        boolean isMainThread = current == ParallelProcessor.getServer().getRunningThread();
+        boolean isAsyncThread = ParallelProcessor.isServerExecutionThread();
+
+        if (!isMainThread && !isAsyncThread) {
+            ParallelProcessor.LOGGER.warn(
+                    "[Async] canSpawnForCategory called from unexpected thread '{}' — " +
+                            "a mod may be reading mobCategoryCounts directly. " +
+                            "This bypasses thread-safe spawn counting.",
+                    current.getName()
+            );
+        }
+
+        AtomicInteger counter = async$concurrentCounts.get(category);
+        return counter != null ? counter.get() : 0;
     }
 }
