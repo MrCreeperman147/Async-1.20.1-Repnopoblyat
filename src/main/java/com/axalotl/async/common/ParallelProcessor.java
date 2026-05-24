@@ -296,9 +296,9 @@ public class ParallelProcessor {
             }
         }
 
-        for (ServerLevel world : server.getAllLevels()) {
-            world.getChunkSource().pollTask();
-        }
+        // Ne pas appeler pollTask() inconditionnellement ici :
+        // runTask() appelle queue.remove() sans vérifier isEmpty() -> NoSuchElementException si vide.
+        // La boucle while ci-dessus a déjà drainé tout le travail en attente.
     }
 
     public static void stop() {
