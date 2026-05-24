@@ -3,6 +3,7 @@ plugins {
     id 'java-library'
     id 'net.minecraftforge.gradle' version '[6.0.24,6.2)'
     id 'org.parchmentmc.librarian.forgegradle' version '1.+'
+    id 'org.spongepowered.mixin' version '0.7.+'
 }
 
 version = project.version
@@ -52,6 +53,9 @@ dependencies {
     implementation("com.github.bawnorton.mixinsquared:mixinsquared-forge:${mixinsquared_version}") { transitive = false }
     compileOnly("com.github.bawnorton.mixinsquared:mixinsquared-common:${mixinsquared_version}")
     annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-common:${mixinsquared_version}")
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
+
 
     // ASM
     implementation "org.ow2.asm:asm:9.5"
@@ -60,6 +64,12 @@ dependencies {
     // Lombok
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
+}
+
+mixin {
+    add sourceSets.main, 'async.refmap.json'
+    config 'async.common.mixins.json'
+    config 'async.forge.mixins.json'
 }
 
 processResources {
@@ -100,10 +110,6 @@ jar {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    options.compilerArgs += [
-            "-AoutRefMapFile=${project.file('src/main/resources/async.refmap.json')}",
-            "-AmixinConfigs=async.common.mixins.json,async.forge.mixins.json"
-    ]
 }
 
 idea.module { downloadJavadoc = downloadSources = true }

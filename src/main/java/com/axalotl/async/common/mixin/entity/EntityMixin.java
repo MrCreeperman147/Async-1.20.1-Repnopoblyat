@@ -42,26 +42,8 @@ public abstract class EntityMixin {
     private final AtomicReference<ImmutableList<Entity>> async$passengersAtomic =
             new AtomicReference<>(ImmutableList.of());
 
-    @Unique
-    private static final java.lang.reflect.Field async$boardingCooldownField;
-
-    static {
-        try {
-            async$boardingCooldownField = Entity.class.getDeclaredField("boardingCooldown");
-            async$boardingCooldownField.setAccessible(true);
-        } catch (NoSuchFieldException e) {
-            throw new RuntimeException("Failed to find boardingCooldown field", e);
-        }
-    }
-
-    @Unique
-    private static void async$setBoardingCooldown(Entity entity, int value) {
-        try {
-            async$boardingCooldownField.setInt(entity, value);
-        } catch (IllegalAccessException e) {
-            throw new RuntimeException("Failed to set boardingCooldown", e);
-        }
-    }
+    @Shadow
+    int boardingCooldown;
     @WrapMethod(method = "setRemoved")
     private void setRemoved(Entity.RemovalReason reason, Operation<Void> original) {
         original.call(reason);
@@ -148,8 +130,7 @@ public abstract class EntityMixin {
 
             if (async$passengersAtomic.compareAndSet(current, updated)) {
                 this.passengers = updated;
-                //passenger.boardingCooldown = 60;
-                async$setBoardingCooldown(passenger, 60);
+                ((EntityMixin)(Object)passenger).boardingCooldown = 60;
                 break;
             }
         }
