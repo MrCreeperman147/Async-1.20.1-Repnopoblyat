@@ -1,6 +1,7 @@
 package com.axalotl.async.common.parallelised.fastutil;
 
 import it.unimi.dsi.fastutil.longs.*;
+import it.unimi.dsi.fastutil.longs.LongListIterator;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
@@ -11,7 +12,7 @@ import java.util.concurrent.ConcurrentSkipListSet;
  * A thread-safe implementation of LongSortedSet backed by ConcurrentSkipListSet.
  * Provides concurrent access and maintains elements in sorted order.
  */
-public final class ConcurrentLongSortedSet implements LongSortedSet {
+public final class ConcurrentLongSortedSet extends LongLinkedOpenHashSet {
 
     private final ConcurrentSkipListSet<Long> backing = new ConcurrentSkipListSet<>();
 
@@ -34,12 +35,12 @@ public final class ConcurrentLongSortedSet implements LongSortedSet {
     }
 
     @Override
-    public LongBidirectionalIterator iterator(long fromElement) {
+    public LongListIterator iterator(long fromElement) {
         return FastUtilHackUtil.wrap(backing.tailSet(fromElement).iterator());
     }
 
     @Override
-    public @NotNull LongBidirectionalIterator iterator() {
+    public @NotNull LongListIterator iterator() {
         return FastUtilHackUtil.wrap(backing.iterator());
     }
 
