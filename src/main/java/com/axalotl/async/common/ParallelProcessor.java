@@ -4,6 +4,7 @@ import com.axalotl.async.common.config.AsyncConfig;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -288,7 +289,12 @@ public class ParallelProcessor {
         while (!allTasksFuture.isDone()) {
             boolean didWork = false;
             for (ServerLevel world : server.getAllLevels()) {
-                didWork |= world.getChunkSource().pollTask();
+                try {
+                    didWork |= world.getChunkSource().pollTask();
+                } catch (java.util.NoSuchElementException ignored) {
+                    // pollTask() -> runTask() -> queue.remove() lève NoSuchElementException si vide
+                    // au lieu de retourner false — on absorbe l'exception proprement
+                }
             }
 
             if (!didWork) {

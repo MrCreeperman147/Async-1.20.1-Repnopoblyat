@@ -70,7 +70,11 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
         // le thread async ne doit jamais bloquer sur .join() pendant que le main thread
         // attend lui-même la fin des futures async (postEntityTick).
         while (!future.isDone()) {
-            if (!this.mainThreadProcessor.pollTask()) {
+            try {
+                if (!this.mainThreadProcessor.pollTask()) {
+                    Thread.onSpinWait();
+                }
+            } catch (java.util.NoSuchElementException ignored) {
                 Thread.onSpinWait();
             }
         }

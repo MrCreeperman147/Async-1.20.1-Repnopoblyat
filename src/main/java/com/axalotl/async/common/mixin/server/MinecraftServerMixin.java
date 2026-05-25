@@ -19,14 +19,6 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         super(string);
     }
 
-    // @Redirect est fragile sur les call sites obfusqués en production — le refmap ne résout pas
-    // toujours correctement isSameThread() dans reloadResources hors environnement dev Parchment.
-    // @WrapOperation (MixinExtras) ne dépend pas du refmap pour résoudre le call site cible.
-    @WrapOperation(method = "reloadResources", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/MinecraftServer;isSameThread()Z"))
-    private boolean onServerExecutionThreadPatch(MinecraftServer minecraftServer, Operation<Boolean> original) {
-        return ParallelProcessor.isMainThread();
-    }
-
     @Inject(method = "stopServer", at = @At("HEAD"))
     private void beforeStopServer(CallbackInfo ci) {
         ParallelProcessor.stop();
