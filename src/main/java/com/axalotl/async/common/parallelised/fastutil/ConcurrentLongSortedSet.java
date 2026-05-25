@@ -18,7 +18,9 @@ public final class ConcurrentLongSortedSet implements LongSortedSet {
     /**
      * Creates a new empty concurrent sorted set
      */
-    public ConcurrentLongSortedSet() {}
+    public ConcurrentLongSortedSet() {
+        super(0);
+    }
 
     /**
      * Creates a new concurrent sorted set containing elements from the given collection
@@ -27,8 +29,8 @@ public final class ConcurrentLongSortedSet implements LongSortedSet {
      * @throws NullPointerException if collection is null
      */
     public ConcurrentLongSortedSet(Collection<Long> collection) {
-        this();
-        addAll(Objects.requireNonNull(collection, "Initial collection cannot be null"));
+        super(0);
+        backing.addAll(Objects.requireNonNull(collection, "Initial collection cannot be null"));
     }
 
     @Override

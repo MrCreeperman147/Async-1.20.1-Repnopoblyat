@@ -15,6 +15,7 @@ public class ConcurrentLongLinkedOpenHashSet extends LongLinkedOpenHashSet {
     private final ConcurrentSkipListSet<Long> backing = new ConcurrentSkipListSet<>();
 
     public ConcurrentLongLinkedOpenHashSet() {
+        super(0);
     }
 
     @Override
