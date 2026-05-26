@@ -4,7 +4,6 @@ import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
@@ -30,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public abstract class LivingEntityMixin extends Entity {
 
     @Shadow
-    final private Map<Holder<MobEffect>, MobEffectInstance> activeEffects = new ConcurrentHashMap<>();
+    final private Map<MobEffect, MobEffectInstance> activeEffects = new ConcurrentHashMap<>();
 
     @Shadow
     protected abstract void onEffectUpdated(MobEffectInstance effect, boolean reapply, Entity source);
@@ -65,16 +64,16 @@ public abstract class LivingEntityMixin extends Entity {
     @WrapMethod(method = "tickEffects")
     private void tickStatusEffects(Operation<Void> original) {
         synchronized (async$lock) {
-            if (this.level() instanceof ServerLevel serverlevel) {
-                List<Holder<MobEffect>> effectsToTick = new ArrayList<>(this.activeEffects.keySet());
+            if (this.level() instanceof ServerLevel) {
+                List<MobEffect> effectsToTick = new ArrayList<>(this.activeEffects.keySet());
 
-                for (Holder<MobEffect> holder : effectsToTick) {
-                    MobEffectInstance mobeffectinstance = this.activeEffects.get(holder);
+                for (MobEffect effect : effectsToTick) {
+                    MobEffectInstance mobeffectinstance = this.activeEffects.get(effect);
 
                     if (mobeffectinstance != null) {
                         if (!mobeffectinstance.tick((LivingEntity)(Object)this,
                                 () -> this.onEffectUpdated(mobeffectinstance, true, null))) {
-                            this.activeEffects.remove(holder);
+                            this.activeEffects.remove(effect);
                             this.onEffectRemoved(mobeffectinstance);
                         } else if (mobeffectinstance.getDuration() % 600 == 0) {
                             this.onEffectUpdated(mobeffectinstance, false, null);
@@ -86,7 +85,6 @@ public abstract class LivingEntityMixin extends Entity {
             }
         }
     }
-
     @WrapMethod(method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z")
     private boolean addEffect(MobEffectInstance effect, Entity source, Operation<Boolean> original) {
         synchronized (async$lock) {
@@ -113,7 +111,7 @@ public abstract class LivingEntityMixin extends Entity {
         }
     }
 
-    @WrapMethod(method = "getCapability(Lnet/minecraftforge/common/capabilities/Capability;Lnet/minecraft/core/Direction;)Lnet/minecraftforge/common/util/LazyOptional;")
+    @WrapMethod(method = "getCapability(Lnet/minecraftforge/common/capabilities/Capability;Lnet/minecraft/core/Direction;)Lnet/minecraftforge/common/util/LazyOptional;", remap = false)
     private <T> net.minecraftforge.common.util.LazyOptional<T> async$getCapability(
             net.minecraftforge.common.capabilities.Capability<T> cap,
             net.minecraft.core.Direction side,
