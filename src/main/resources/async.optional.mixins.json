@@ -1,0 +1,15 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "com.axalotl.async.common.mixin.entity",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "async.refmap.json",
+  "plugin": "com.axalotl.async.common.mixin.utils.OptionalMixinPlugin",
+  "mixins": [
+    "MekanismCapabilityMixin",
+    "LeafcutterAntAIMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

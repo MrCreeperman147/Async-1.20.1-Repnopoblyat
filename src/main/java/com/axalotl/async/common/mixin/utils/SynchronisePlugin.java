@@ -9,6 +9,7 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
+import java.util.Map;
 
 import java.util.Collection;
 import java.util.List;
@@ -19,6 +20,19 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
     private static final Logger LOGGER = LogManager.getLogger();
     private static final int FINAL_STATIC_PRIVATE_ABSTRACT = 0x1548; // final, static, private, abstract
     private static final int SYNCHRONIZED = 0x20; // synchronized
+
+    private static final Set<String> MOD_CONDITIONAL_MIXINS = Set.of(
+            "com.axalotl.async.common.mixin.entity.MekanismCapabilityMixin",
+            "com.axalotl.async.common.mixin.entity.LeafcutterAntAIMixin"
+    );
+
+    private static final Map<String, String> MIXIN_TO_TARGET_CLASS = Map.of(
+            "com.axalotl.async.common.mixin.entity.MekanismCapabilityMixin",
+            "mekanism.common.capabilities.resolver.BasicCapabilityResolver",
+            "com.axalotl.async.common.mixin.entity.LeafcutterAntAIMixin",
+            "com.github.alexthe666.alexsmobs.entity.ai.LeafcutterAntAIForageLeaves"
+    );
+
     private final Multimap<String, String> mixin2MethodsMap = ArrayListMultimap.create();
     private final Multimap<String, String> mixin2MethodsExcludeMap = ArrayListMultimap.create();
     private final TreeSet<String> syncAllSet = new TreeSet<>();
@@ -37,6 +51,19 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
+        if (MOD_CONDITIONAL_MIXINS.contains(mixinClassName)) {
+            String targetClass = MIXIN_TO_TARGET_CLASS.get(mixinClassName);
+            if (targetClass != null) {
+                try {
+                    Class.forName(targetClass, false, this.getClass().getClassLoader());
+                    return true;
+                } catch (ClassNotFoundException e) {
+                    LOGGER.debug("Skipping mixin {} — target class {} not found (mod not loaded)",
+                            mixinClassName, targetClass);
+                    return false;
+                }
+            }
+        }
         return true;
     }
 
@@ -69,6 +96,8 @@ public class SynchronisePlugin implements IMixinConfigPlugin {
             }
         }
     }
+
+
 
     private void applySynchronizeBit(ClassNode targetClass, Collection<String> targetMethods, String targetClassName) {
         for (MethodNode method : targetClass.methods) {

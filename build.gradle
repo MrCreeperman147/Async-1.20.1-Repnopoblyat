@@ -100,10 +100,7 @@ jar {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    options.compilerArgs += [
-            "-AoutRefMapFile=${project.file('src/main/resources/async.refmap.json')}",
-            "-AmixinConfigs=async.common.mixins.json,async.forge.mixins.json"
-    ]
+    options.compilerArgs << '-AmixinIgnoreNotFound=true'
 }
 
 idea.module { downloadJavadoc = downloadSources = true }
