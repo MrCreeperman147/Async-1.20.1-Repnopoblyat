@@ -17,9 +17,6 @@ config = "${mod_id}.common.mixins.json"
 [[mixins]]
 config = "${mod_id}.forge.mixins.json"
 
-[[mixins]]
-config = "${mod_id}.optional.mixins.json"
-
 [[dependencies."${mod_id}"]]
 modId = "forge"
 mandatory = true

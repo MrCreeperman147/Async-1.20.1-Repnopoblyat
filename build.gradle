@@ -100,7 +100,6 @@ jar {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    options.compilerArgs << '-AmixinIgnoreNotFound=true'
 }
 
 idea.module { downloadJavadoc = downloadSources = true }

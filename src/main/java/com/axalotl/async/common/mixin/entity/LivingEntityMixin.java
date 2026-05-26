@@ -113,6 +113,16 @@ public abstract class LivingEntityMixin extends Entity {
         }
     }
 
+    @WrapMethod(method = "getCapability(Lnet/minecraftforge/common/capabilities/Capability;Lnet/minecraft/core/Direction;)Lnet/minecraftforge/common/util/LazyOptional;")
+    private <T> net.minecraftforge.common.util.LazyOptional<T> async$getCapability(
+            net.minecraftforge.common.capabilities.Capability<T> cap,
+            net.minecraft.core.Direction side,
+            Operation<net.minecraftforge.common.util.LazyOptional<T>> original) {
+        synchronized (this) {
+            return original.call(cap, side);
+        }
+    }
+
     @Inject(method = "causeFallDamage", at = @At("HEAD"), cancellable = true)
     private void causeFallDamage(float fallDistance, float multiplier, DamageSource source, CallbackInfoReturnable<Boolean> cir) {
         BlockPos pos = new BlockPos(Mth.floor(this.getX()), Mth.floor(this.getY()), Mth.floor(this.getZ()));

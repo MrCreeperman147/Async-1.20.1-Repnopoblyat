@@ -60,6 +60,11 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
             return;
         }
 
+        if (!create) {
+            cir.setReturnValue(null);
+            return;
+        }
+
         CompletableFuture<Either<ChunkAccess, ChunkHolder.ChunkLoadingFailure>> future = CompletableFuture.supplyAsync(
                 () -> this.getChunkFutureMainThread(x, z, leastStatus, create),
                 this.mainThreadProcessor
@@ -176,4 +181,5 @@ public abstract class ServerChunkCacheMixin extends ChunkSource {
     private void onSpawnForChunk(ServerLevel level, LevelChunk chunk, NaturalSpawner.SpawnState spawnState, boolean spawnAnimals, boolean spawnMonsters, boolean rareSpawn) {
         ParallelProcessor.asyncSpawnForChunk(level, chunk, spawnState, spawnAnimals, spawnMonsters, rareSpawn);
     }
+
 }
