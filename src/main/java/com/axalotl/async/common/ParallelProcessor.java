@@ -35,6 +35,8 @@ public class ParallelProcessor {
     private static final AtomicInteger threadPoolID = new AtomicInteger();
     public static ForkJoinPool tickPool;
     public static final ConcurrentLinkedQueue<CompletableFuture<?>> taskQueue = new ConcurrentLinkedQueue<>();
+    // Safety limit to avoid unbounded growth of pending async tasks under extreme load
+    public static final int MAX_PENDING_TASKS = 10000;
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Integer> portalTickSyncMap = new ConcurrentHashMap<>();
     private static final Map<String, Set<WeakReference<Thread>>> mcThreadTracker = new ConcurrentHashMap<>();
@@ -125,14 +127,19 @@ public class ParallelProcessor {
             tickSynchronously(world, entity);
         } else {
             if (!tickPool.isShutdown() && !tickPool.isTerminated()) {
-                CompletableFuture<Void> future = CompletableFuture.runAsync(() ->
-                        performAsyncEntityTick(world, entity), tickPool
-                ).exceptionally(e -> {
-                    logEntityError("Error in async tick, switching to synchronous", entity, e);
-                    blacklistedEntity.add(entity.getUUID());
-                    return null;
-                });
-                taskQueue.add(future);
+                if (taskQueue.size() >= MAX_PENDING_TASKS) {
+                    LOGGER.warn("Pending task queue full ({}) — running entity tick synchronously for {}", taskQueue.size(), entity.getUUID());
+                    tickSynchronously(world, entity);
+                } else {
+                    CompletableFuture<Void> future = CompletableFuture.runAsync(() ->
+                            performAsyncEntityTick(world, entity), tickPool
+                    ).exceptionally(e -> {
+                        logEntityError("Error in async tick, switching to synchronous", entity, e);
+                        blacklistedEntity.add(entity.getUUID());
+                        return null;
+                    });
+                    taskQueue.add(future);
+                }
             } else {
                 tickSynchronously(world, entity);
             }
@@ -228,6 +235,12 @@ public class ParallelProcessor {
 
         //TODO: I might be schitzo but spawnState might also need to be copied cause concurrency or sum shi. bool may also need copy but we ball
 
+        if (spawnQueue.size() >= MAX_PENDING_TASKS) {
+            LOGGER.warn("Spawn queue full ({}). Running spawn for chunk {} synchronously", spawnQueue.size(), chunk.getPos());
+            NaturalSpawner.spawnForChunk(level, chunk, spawnState, spawnAnimals, spawnMonsters, rareSpawn);
+            return;
+        }
+
         CompletableFuture<Void> future = CompletableFuture.runAsync(() ->
                 NaturalSpawner.spawnForChunk(level, chunk, spawnState, spawnAnimals, spawnMonsters, rareSpawn), tickPool
         ).exceptionally(e -> {
@@ -235,11 +248,17 @@ public class ParallelProcessor {
             return null;
         });
 
-        taskQueue.add(future);
+        spawnQueue.add(future);
     }
 
     public static void asyncDespawn(Entity entity) {
         if (isShuttingDown || AsyncConfig.isDisabled || !AsyncConfig.isAsyncSpawnEnabled) {
+            entity.checkDespawn();
+            return;
+        }
+
+        if (taskQueue.size() >= MAX_PENDING_TASKS) {
+            LOGGER.warn("Pending task queue full ({}). Running despawn synchronously for {}", taskQueue.size(), entity.getUUID());
             entity.checkDespawn();
             return;
         }
@@ -256,6 +275,14 @@ public class ParallelProcessor {
     }
 
     public static void addTask(CompletableFuture<?> future) {
+        if (taskQueue.size() >= MAX_PENDING_TASKS) {
+            LOGGER.warn("addTask: task queue full ({}). Cancelling added task.", taskQueue.size());
+            try {
+                future.cancel(true);
+            } catch (Exception ignored) {
+            }
+            return;
+        }
         taskQueue.add(future);
     }
 
