@@ -25,8 +25,8 @@ public class AsyncConfig {
 
     // Caches
     private static final Map<ResourceLocation, Boolean> syncCache = new ConcurrentHashMap<>();
-    private static final Set<String> exactEntities = new HashSet<>();
-    private static final Set<String> namespaceWildcards = new HashSet<>();
+    private static final Set<String> exactEntities = ConcurrentHashMap.newKeySet();
+    private static final Set<String> namespaceWildcards = ConcurrentHashMap.newKeySet();
 
     // These are used by mixins so need to be volatile to ensure visibility across threads
     public static volatile boolean isDisabled = false;
