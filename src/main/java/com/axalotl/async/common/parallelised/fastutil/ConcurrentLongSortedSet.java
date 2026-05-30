@@ -1,6 +1,7 @@
 package com.axalotl.async.common.parallelised.fastutil;
 
 import it.unimi.dsi.fastutil.longs.*;
+import it.unimi.dsi.fastutil.longs.LongListIterator;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
@@ -11,14 +12,16 @@ import java.util.concurrent.ConcurrentSkipListSet;
  * A thread-safe implementation of LongSortedSet backed by ConcurrentSkipListSet.
  * Provides concurrent access and maintains elements in sorted order.
  */
-public final class ConcurrentLongSortedSet implements LongSortedSet {
+public final class ConcurrentLongSortedSet extends LongLinkedOpenHashSet {
 
     private final ConcurrentSkipListSet<Long> backing = new ConcurrentSkipListSet<>();
 
     /**
      * Creates a new empty concurrent sorted set
      */
-    public ConcurrentLongSortedSet() {}
+    public ConcurrentLongSortedSet() {
+        super(0);
+    }
 
     /**
      * Creates a new concurrent sorted set containing elements from the given collection
@@ -27,17 +30,17 @@ public final class ConcurrentLongSortedSet implements LongSortedSet {
      * @throws NullPointerException if collection is null
      */
     public ConcurrentLongSortedSet(Collection<Long> collection) {
-        this();
-        addAll(Objects.requireNonNull(collection, "Initial collection cannot be null"));
+        super(0);
+        backing.addAll(Objects.requireNonNull(collection, "Initial collection cannot be null"));
     }
 
     @Override
-    public LongBidirectionalIterator iterator(long fromElement) {
+    public LongListIterator iterator(long fromElement) {
         return FastUtilHackUtil.wrap(backing.tailSet(fromElement).iterator());
     }
 
     @Override
-    public @NotNull LongBidirectionalIterator iterator() {
+    public @NotNull LongListIterator iterator() {
         return FastUtilHackUtil.wrap(backing.iterator());
     }
 

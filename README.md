@@ -2,71 +2,91 @@
 
 # Async 1.20.1 - Minecraft Entity Multi-Threading Mod ⚙️
 
-[![Discord](https://img.shields.io/discord/YOUR_DISCORD_ID?style=for-the-badge&logo=discord&label=Discord)](https://discord.com/invite/scvCQ2qKS3)
-[![GitHub Issues](https://img.shields.io/github/issues/AxalotLDev/Async?style=for-the-badge)](https://github.com/Bliss-tbh/Async-1.20.1/issues)
 </div>
 
+**Async** is a Forge mod for Minecraft 1.20.1 that improves entity performance by processing them in parallel across multiple CPU cores and threads.
 
+## ⚠️ Important
 
-**Async** is a Fabric mod designed to improve entity performance by processing them in parallel using multiple CPU cores and threads.
+**Async** is currently in alpha and is experimental. It may cause incorrect entity behavior or crashes. Always back up your world before installing.
+**This fork is modified for personnal use.**
 
+---
 
-## Important❗
-**Async** is currently in alpha testing and is experimental. Its use may lead to incorrect entity behavior and crashes. It may be even more unstable on 1.20.1!
+## 💡 Key Benefits
 
+- ⚡ **Improved TPS** — Maintains stable tick times even with large numbers of entities.
+- 🚀 **Multithreading** — Distributes entity ticking across all available CPU cores using a `ForkJoinPool`.
+- 🔒 **Safe fallback** — Entities that are incompatible with async processing are automatically kept on the main thread. Known incompatible mods (configurable via `unsupportedMods`) have their entire namespace synchronized on startup.
+- 🎲 **Async Random Ticks** *(Experimental)* — Processes chunk random ticks asynchronously for additional performance gains.
 
+---
 
-### 💡 Key Benefits:
-- ⚡ **Improved TPS**: Maintains stable tick times even with a large number of entities.
-- 🚀 **Multithreading**: Utilizes multiple CPU cores for parallel entity processing.
-- 🎲 **Async Random Ticks** (Experimental): Processes random ticks asynchronously for better performance.
+## 📊 Performance Comparison (9000 Villagers)
 
-### 📊 Performance Comparison (9000 Villagers) (Not From 1.20.1)
+> ⚠️ Benchmark run on 1.21.4 — results on 1.20.1 may differ.
+
 | Configuration               | TPS  | MSPT   |
 |-----------------------------|------|--------|
 | **Lithium + Async**         | 20   | 41.8   |
 | **Lithium (without Async)** | 4.4  | 225.4  |
 | **Purpur**                  | 5.72 | 176.18 |
 
-### 🛠️ Test Configuration
+<details>
+<summary>Test configuration</summary>
+
 - **Processor**: AMD Ryzen 9 7950X3D
 - **RAM**: 64 GB (16 GB allocated to the server)
 - **Minecraft Version**: 1.21.4
-- **Number of Entities**: 9000
-- **Entity Type**: Villagers
+- **Entities**: 9000 Villagers
+- **Mods**: Concurrent Chunk Management Engine, Fabric API, FerriteCore, Lithium, ScalableLux, ServerCore, StackDeobfuscator, TT20, Tectonic, Very Many Players, Fabric Carpet
 
-<details>
-<summary>Mod List</summary>
-Concurrent Chunk Management Engine, Fabric API, FerriteCore, Lithium, ScalableLux, ServerCore, StackDeobfuscator, TT20 (TPS Fixer), Tectonic, Very Many Players, Fabric Carpet.
 </details>
 
-## ⚠️ Incompatible Mods (1.20.1)
-- ⚠️ If you find an incompatible mod for 1.20.1 report it to ME not AxolotL. 
+---
 
-*If you encounter issues with other mods, please report them on my [GitHub](https://github.com/Bliss-tbh/Async-1.20.1/issues).*
+## ⚠️ Incompatible Mods (1.20.1)
+
+Entities from incompatible mods can be forced onto the main thread via the `synchronizedEntities` config or the `/async config synchronizedEntities add` command. Entire mod namespaces can be synchronized with the `modid:*` wildcard.
+
+The `unsupportedMods` list in `async.toml` auto-synchronizes a mod's full namespace on startup if the mod is detected. It defaults to `["create", "fowlplay"]`.
+
+*Found an incompatible mod? Please report it on [this fork's GitHub](https://github.com/MrCreeperman147/Async-1.20.1-Repnopoblyat/issues), not on the upstream tracker.*
+
+---
 
 ## 🔧 Commands
-- `/async config toggle` — Enables or disables the mod in-game (no server restart required). Use this command to instantly see how Async improves your server.
-- `/async config setAsyncEntitySpawn` — Enables or disables parallel mob spawn processing (disabled by default). **Warning: Not compatible with Carpet mod lagFreeSpawning rule.**
-- `/async config setAsyncRandomTicks` — Enables or disables async random ticks processing (experimental feature).
-- `/async config synchronizedEntities add` — Adds selected entity to synchronized processing.
-- `/async config synchronizedEntities remove` — Removes selected entity from synchronized processing.
-- `/async stats` — Displays the number of threads in use.
-- `/async stats entity` — Shows the number of entities processed by Async in various worlds.
-- `/async stats entity [number]` — Shows the top [number] entity types by count in descending order. For example, `/async stats entity 10` displays the top 10 most numerous entity types.
+
+All commands require operator level 4 unless otherwise noted.
+
+**Config**
+- `/async config toggle` — Enable or disable Async at runtime (no restart needed).
+- `/async config reload` — Reload `async.toml` from disk without restarting.
+- `/async config setAsyncEntitySpawn <true|false>` — Enable or disable parallel mob spawn processing. **Not compatible with Carpet mod's `lagFreeSpawning` rule.**
+- `/async config setAsyncRandomTicks <true|false>` — Enable or disable async random tick processing *(experimental)*.
+- `/async config synchronizedEntities` — List all currently synchronized entities.
+- `/async config synchronizedEntities add <entity|namespace:*>` — Force an entity type or an entire mod namespace onto the main thread.
+- `/async config synchronizedEntities remove <entity|namespace:*>` — Remove an entity type or namespace from the synchronized list.
+
+**Stats** *(available to all players)*
+- `/async stats` — Show current status: enabled state, MSPT, thread count, async entity ratio.
+- `/async stats entity` — Show per-dimension entity counts (sync vs async).
+- `/async stats entity <n>` — Show the top `n` entity types by count, with their sync/async status.
+
+---
 
 ## 📥 Download
-The mod is available here at [Releases]()
 
-## 🔄 Minecraft Version Support
-Full support is provided for 1.20.1 sometimes :P
+Available at [Releases](https://github.com/MrCreeperman147/Async-1.20.1-Repnopoblyat/releases).
+
+---
 
 ## 📭 Feedback
-Use original Async's tracker for **FEEDBACK ONLY** (if your coming from 1.20.1) available on GitHub. Changes made there might slowly drizzle down to this fork:
-[![Give feedback on GitHub](https://img.shields.io/badge/Report%20issues%20on-GitHub-lightgrey)](https://github.com/AxalotLDev/Async/issues)
 
-You can also chat with me on their Discord:
-[![Chat with us on Discord](https://img.shields.io/badge/Chat%20with%20us%20on-Discord-blue)](https://discord.com/invite/scvCQ2qKS3)
+Use this fork's [issue tracker](https://github.com/MrCreeperman147/Async-1.20.1-Repnopoblyat/issues) for bugs specific to 1.20.1.
+
+
+---
 
 ## 🙌 Acknowledgements
-This mod is based on code from [MCMTFabric](https://modrinth.com/mod/mcmtfabric), which in turn was based on [JMT-MCMT](https://github.com/jediminer543/JMT-MCMT). Huge thanks to Grider and jediminer543 for their invaluable contributions!
+Forked from [Async-1.20.1](https://github.com/Bliss-tbh/Async-1.20.1), based on [MCMTFabric](https://modrinth.com/mod/mcmtfabric), itself based on [JMT-MCMT](https://github.com/jediminer543/JMT-MCMT). Thanks to Grider, jediminer543, and all contributors to the upstream Async project.

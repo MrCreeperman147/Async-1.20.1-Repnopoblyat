@@ -70,6 +70,12 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
 }
 
+mixin {
+    add sourceSets.main, 'async.refmap.json'
+    config 'async.common.mixins.json'
+    config 'async.forge.mixins.json'
+}
+
 processResources {
     def expandProps = [
         'version'                   : version,
