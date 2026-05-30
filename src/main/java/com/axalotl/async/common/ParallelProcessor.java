@@ -37,6 +37,9 @@ public class ParallelProcessor {
     public static final ConcurrentLinkedQueue<CompletableFuture<?>> taskQueue = new ConcurrentLinkedQueue<>();
     // Safety limit to avoid unbounded growth of pending async tasks under extreme load
     public static final int MAX_PENDING_TASKS = 10000;
+    // counters to avoid O(n) size() calls on queues
+    public static final AtomicInteger pendingTaskCount = new AtomicInteger(0);
+    public static final AtomicInteger pendingSpawnCount = new AtomicInteger(0);
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Integer> portalTickSyncMap = new ConcurrentHashMap<>();
     private static final Map<String, Set<WeakReference<Thread>>> mcThreadTracker = new ConcurrentHashMap<>();
@@ -127,13 +130,14 @@ public class ParallelProcessor {
             tickSynchronously(world, entity);
         } else {
             if (!tickPool.isShutdown() && !tickPool.isTerminated()) {
-                if (taskQueue.size() >= MAX_PENDING_TASKS) {
-                    LOGGER.warn("Pending task queue full ({}) — running entity tick synchronously for {}", taskQueue.size(), entity.getUUID());
+                if (pendingTaskCount.get() >= MAX_PENDING_TASKS) {
+                    LOGGER.warn("Pending task queue full ({}) — running entity tick synchronously for {}", pendingTaskCount.get(), entity.getUUID());
                     tickSynchronously(world, entity);
                 } else {
+                    pendingTaskCount.incrementAndGet();
                     CompletableFuture<Void> future = CompletableFuture.runAsync(() ->
                             performAsyncEntityTick(world, entity), tickPool
-                    ).exceptionally(e -> {
+                    ).whenComplete((r,e) -> pendingTaskCount.decrementAndGet()).exceptionally(e -> {
                         logEntityError("Error in async tick, switching to synchronous", entity, e);
                         blacklistedEntity.add(entity.getUUID());
                         return null;
@@ -235,15 +239,16 @@ public class ParallelProcessor {
 
         //TODO: I might be schitzo but spawnState might also need to be copied cause concurrency or sum shi. bool may also need copy but we ball
 
-        if (spawnQueue.size() >= MAX_PENDING_TASKS) {
-            LOGGER.warn("Spawn queue full ({}). Running spawn for chunk {} synchronously", spawnQueue.size(), chunk.getPos());
+        if (pendingSpawnCount.get() >= MAX_PENDING_TASKS) {
+            LOGGER.warn("Spawn queue full ({}). Running spawn for chunk {} synchronously", pendingSpawnCount.get(), chunk.getPos());
             NaturalSpawner.spawnForChunk(level, chunk, spawnState, spawnAnimals, spawnMonsters, rareSpawn);
             return;
         }
 
+        pendingSpawnCount.incrementAndGet();
         CompletableFuture<Void> future = CompletableFuture.runAsync(() ->
                 NaturalSpawner.spawnForChunk(level, chunk, spawnState, spawnAnimals, spawnMonsters, rareSpawn), tickPool
-        ).exceptionally(e -> {
+        ).whenComplete((r,e) -> pendingSpawnCount.decrementAndGet()).exceptionally(e -> {
             LOGGER.error("Error in async spawn for chunk {}: {}", chunk.getPos(), e.getMessage());
             return null;
         });
@@ -257,15 +262,16 @@ public class ParallelProcessor {
             return;
         }
 
-        if (taskQueue.size() >= MAX_PENDING_TASKS) {
-            LOGGER.warn("Pending task queue full ({}). Running despawn synchronously for {}", taskQueue.size(), entity.getUUID());
+        if (pendingTaskCount.get() >= MAX_PENDING_TASKS) {
+            LOGGER.warn("Pending task queue full ({}). Running despawn synchronously for {}", pendingTaskCount.get(), entity.getUUID());
             entity.checkDespawn();
             return;
         }
 
+        pendingTaskCount.incrementAndGet();
         CompletableFuture<Void> future = CompletableFuture.runAsync(
                 entity::checkDespawn, tickPool
-        ).exceptionally(e -> {
+        ).whenComplete((r,e) -> pendingTaskCount.decrementAndGet()).exceptionally(e -> {
             LOGGER.error("Error in async spawn tick, switching to synchronous", e);
             entity.checkDespawn();
             return null;
@@ -275,14 +281,16 @@ public class ParallelProcessor {
     }
 
     public static void addTask(CompletableFuture<?> future) {
-        if (taskQueue.size() >= MAX_PENDING_TASKS) {
-            LOGGER.warn("addTask: task queue full ({}). Cancelling added task.", taskQueue.size());
+        if (pendingTaskCount.get() >= MAX_PENDING_TASKS) {
+            LOGGER.warn("addTask: task queue full ({}). Cancelling added task.", pendingTaskCount.get());
             try {
                 future.cancel(true);
             } catch (Exception ignored) {
             }
             return;
         }
+        pendingTaskCount.incrementAndGet();
+        future.whenComplete((r,e) -> pendingTaskCount.decrementAndGet());
         taskQueue.add(future);
     }
 
