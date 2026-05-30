@@ -246,14 +246,17 @@ public class ParallelProcessor {
         }
 
         pendingSpawnCount.incrementAndGet();
-        CompletableFuture<Void> future = CompletableFuture.runAsync(() ->
-                NaturalSpawner.spawnForChunk(level, chunk, spawnState, spawnAnimals, spawnMonsters, rareSpawn), tickPool
-        ).whenComplete((r,e) -> pendingSpawnCount.decrementAndGet()).exceptionally(e -> {
-            LOGGER.error("Error in async spawn for chunk {}: {}", chunk.getPos(), e.getMessage());
-            return null;
-        });
+        try {
+            // Run spawn synchronously on the main server thread to avoid off-thread entity additions
+            NaturalSpawner.spawnForChunk(level, chunk, spawnState, spawnAnimals, spawnMonsters, rareSpawn);
+        } catch (Exception e) {
+            LOGGER.error("Error in spawn for chunk {}: {}", chunk.getPos(), e.getMessage(), e);
+        } finally {
+            pendingSpawnCount.decrementAndGet();
+        }
 
-        spawnQueue.add(future);
+        // Add a completed future so postEntityTick still observes this work as "done"
+        spawnQueue.add(CompletableFuture.completedFuture(null));
     }
 
     public static void asyncDespawn(Entity entity) {
