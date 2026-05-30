@@ -17,6 +17,7 @@
     "entity.DolphinMixin",
     "entity.EntityLookupMixin",
     "entity.EntityMixin",
+    "entity.HangingEntityMixin",
     "entity.EntitySelectorMixin",
     "entity.EntityTickListMixin",
     "entity.FoxMixin",

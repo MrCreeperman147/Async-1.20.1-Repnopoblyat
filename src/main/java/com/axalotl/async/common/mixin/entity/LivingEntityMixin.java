@@ -85,7 +85,6 @@ public abstract class LivingEntityMixin extends Entity {
             }
         }
     }
-
     @WrapMethod(method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z")
     private boolean addEffect(MobEffectInstance effect, Entity source, Operation<Boolean> original) {
         synchronized (async$lock) {
@@ -109,6 +108,16 @@ public abstract class LivingEntityMixin extends Entity {
     private boolean removeAllEffects(Operation<Boolean> original) {
         synchronized (async$lock) {
             return original.call();
+        }
+    }
+
+    @WrapMethod(method = "getCapability(Lnet/minecraftforge/common/capabilities/Capability;Lnet/minecraft/core/Direction;)Lnet/minecraftforge/common/util/LazyOptional;", remap = false)
+    private <T> net.minecraftforge.common.util.LazyOptional<T> async$getCapability(
+            net.minecraftforge.common.capabilities.Capability<T> cap,
+            net.minecraft.core.Direction side,
+            Operation<net.minecraftforge.common.util.LazyOptional<T>> original) {
+        synchronized (this) {
+            return original.call(cap, side);
         }
     }
 

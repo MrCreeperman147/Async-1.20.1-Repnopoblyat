@@ -19,6 +19,13 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         super(string);
     }
 
+    /*
+    @Redirect(method = "reloadResources", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/MinecraftServer;isSameThread()Z"))
+    private boolean onServerExecutionThreadPatch(MinecraftServer minecraftServer) {
+        return ParallelProcessor.isMainThread();
+    }
+    */
+
     @Inject(method = "stopServer", at = @At("HEAD"))
     private void beforeStopServer(CallbackInfo ci) {
         ParallelProcessor.stop();

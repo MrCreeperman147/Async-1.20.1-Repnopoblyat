@@ -44,6 +44,7 @@ public abstract class EntityMixin {
 
     @Shadow
     int boardingCooldown;
+
     @WrapMethod(method = "setRemoved")
     private void setRemoved(Entity.RemovalReason reason, Operation<Void> original) {
         original.call(reason);
@@ -130,6 +131,7 @@ public abstract class EntityMixin {
 
             if (async$passengersAtomic.compareAndSet(current, updated)) {
                 this.passengers = updated;
+                //passenger.boardingCooldown = 60;
                 ((EntityMixin)(Object)passenger).boardingCooldown = 60;
                 break;
             }
