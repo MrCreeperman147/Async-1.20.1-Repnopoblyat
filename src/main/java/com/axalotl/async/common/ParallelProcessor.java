@@ -319,13 +319,20 @@ public class ParallelProcessor {
                 try {
                     didWork |= world.getChunkSource().pollTask();
                 } catch (java.util.NoSuchElementException ignored) {
-                    // pollTask() -> runTask() -> queue.remove() lève NoSuchElementException si vide
-                    // au lieu de retourner false — on absorbe l'exception proprement
+                    // pollTask() -> runTask() -> queue.remove() throws NoSuchElementException when empty; ignore
                 }
             }
 
             if (!didWork) {
-                Thread.onSpinWait();
+                try {
+                    // Wait briefly on the CompletableFuture to avoid busy spinning. Timeout will wake periodically to poll tasks again.
+                    allTasksFuture.get(10, TimeUnit.MILLISECONDS);
+                } catch (java.util.concurrent.TimeoutException ignored) {
+                    // expected timeout to re-check pending tasks
+                } catch (Exception e) {
+                    LOGGER.error("Unexpected exception while waiting for async tasks to complete", e);
+                    break;
+                }
             }
         }
 
