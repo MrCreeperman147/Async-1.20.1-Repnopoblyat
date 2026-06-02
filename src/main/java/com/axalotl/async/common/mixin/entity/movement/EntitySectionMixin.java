@@ -3,17 +3,25 @@ package com.axalotl.async.common.mixin.entity.movement;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import net.minecraft.util.ClassInstanceMultiMap;
+import net.minecraft.util.AbortableIterationConsumer;
 import net.minecraft.world.level.entity.EntityAccess;
 import net.minecraft.world.level.entity.EntitySection;
 import net.minecraft.world.level.entity.Visibility;
+import net.minecraft.world.level.entity.EntityTypeTest;
+import net.minecraft.world.phys.AABB;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+
+
+
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
+import java.util.ArrayList;
+import java.util.List;
 
 @Mixin(EntitySection.class)
 public class EntitySectionMixin<T extends EntityAccess> {
@@ -86,4 +94,37 @@ public class EntitySectionMixin<T extends EntityAccess> {
                 .toList()
                 .stream();
     }
+
+    /**
+     * @author MrCreeperman147
+     * @reason Make isEmpty thread-safe via storageLock — fixes ac_collide deadlock
+     */
+    @Overwrite
+    public boolean isEmpty() {
+        synchronized (async$storageLock) {
+            return this.storage.isEmpty();
+        }
+    }
+
+    /**
+     * @author MrCreeperman147
+     * @reason Make typed getEntities thread-safe via snapshot — fixes ac_collide deadlock
+     */
+    @Overwrite
+    public <U extends T> AbortableIterationConsumer.Continuation getEntities(EntityTypeTest<T, U> filter, AABB bounds, AbortableIterationConsumer<? super U> consumer) {
+        List<T> snapshot;
+        synchronized (async$storageLock) {
+            snapshot = new ArrayList<>(this.storage);
+        }
+        for (T entity : snapshot) {
+            U casted = filter.tryCast(entity);
+            if (casted != null && casted.getBoundingBox().intersects(bounds)) {
+                if (consumer.accept(casted) == AbortableIterationConsumer.Continuation.ABORT) {
+                    return AbortableIterationConsumer.Continuation.ABORT;
+                }
+            }
+        }
+        return AbortableIterationConsumer.Continuation.CONTINUE;
+    }
+
 }
