@@ -6,14 +6,17 @@ This file documents repository-specific build/test/lint commands, the high-level
 
 - Full build (exact command used by CI):
   - Windows: gradlew.bat clean processIncludeJars build --stacktrace
-  - Unix: ./gradlew clean processIncludeJars build --stacktrace
+  - Unix/macOS: ./gradlew clean processIncludeJars build --stacktrace
+- Make wrapper executable on *nix: chmod +x ./gradlew
 - Build artifact only: ./gradlew assemble
 - Run a development server (Forge run configuration):
-  - ./gradlew runServer     (server dev run; configured with --nogui)
+  - ./gradlew runServer     (server dev run; server run configuration already passes --nogui by default)
+  - To explicitly run headless: ./gradlew runServer --args='--nogui'
   - ./gradlew runClient     (client dev run)
-- Run a single Gradle test (none exist in this repo by default):
-  - ./gradlew test --tests "com.example.YourTestClass"
-  - To run a single test method: ./gradlew test --tests "com.example.YourTestClass.methodName"
+- Run a single Gradle test:
+  - Unix: ./gradlew test --tests "com.axalotl.async.YourTestClass"
+  - Windows: gradlew.bat test --tests "com.axalotl.async.YourTestClass"
+  - Run a single test method (Unix): ./gradlew test --tests "com.axalotl.async.YourTestClass.yourMethod"
   - Note: There are currently no test sources in the repository; Gradle test is a no-op unless tests are added.
 - Linting / static analysis:
   - No dedicated linter/checkstyle/spotless tasks are configured in the project. Use the Gradle build (./gradlew check) if you add standard checks.
@@ -23,8 +26,9 @@ CI notes
 - CI installs libtinfo5 on the runner and caches Gradle artifacts. Artifacts copied in CI come from neoforge/build/libs and fabric/build/libs in that workflow.
 
 Environment & Java
-- The Gradle toolchain is configured from gradle.properties (java_version). Current repo sets java_version=17 (gradle.properties) and build.gradle uses the toolchain value.
-- GitHub Actions sets up JDK 22 on the runner; CI still builds successfully. For local dev prefer an IDE JDK matching the Gradle toolchain (java_version) or rely on Gradle toolchains to obtain a compatible JDK.
+- The Gradle toolchain is configured from gradle.properties (java_version). Current repo sets java_version=17.
+- CI uses JDK 22 in GitHub Actions (see .github/workflows/build.yml). Both values matter: Gradle toolchain's java_version governs compilation/runtime compatibility declared by the project, while the CI runner's JDK (22) is the runtime used in the workflow.
+- For local development either match your IDE JDK to gradle.properties (17) or rely on Gradle toolchains to provision a compatible JDK.
 
 2) High-level architecture (big picture)
 
@@ -37,7 +41,7 @@ Environment & Java
 - Config and runtime toggles: AsyncConfig exposes Map.Entry-backed defaults and volatile boolean flags that mixins read directly; platform-specific config loaders (e.g., AsyncConfigForge) populate these and call AsyncConfig.onConfigLoaded().
 
 Resource expansion
-- processResources expands properties (mod id, version, java_version, etc.) into pack.mcmeta, META-INF/mods.toml, and the mixins JSON files. When adding mixins or changing mod_id, ensure matching entries are present in those files and processResources continues to expand them.
+- processResources expands properties (mod id, version, java_version, etc.) into pack.mcmeta, META-INF/mods.toml, mixins JSON files (async.common.mixins.json, async.forge.mixins.json) and the refmap (async.refmap.json). When adding mixins or changing mod_id, ensure matching entries are present and processResources continues to expand them.
 
 3) Key conventions and gotchas (repo-specific patterns)
 
