@@ -15,6 +15,7 @@ import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.vehicle.AbstractMinecart;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.level.*;
+import net.minecraft.world.level.block.entity.TickingBlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -32,10 +33,17 @@ public class ParallelProcessor {
     private static MinecraftServer server;
 
     public static AtomicInteger currentEntities = new AtomicInteger();
+    public static AtomicInteger currentBlockEntities = new AtomicInteger();
     private static final AtomicInteger threadPoolID = new AtomicInteger();
     public static ForkJoinPool tickPool;
     public static final ConcurrentLinkedQueue<CompletableFuture<?>> taskQueue = new ConcurrentLinkedQueue<>();
+    // File dédiée au Front B : drainée par postBlockEntityTick(), distincte de la file d'entités
+    // (les phases de tick sont disjointes, on évite ainsi toute contamination entre barrières).
+    public static final ConcurrentLinkedQueue<CompletableFuture<?>> beTaskQueue = new ConcurrentLinkedQueue<>();
     private static final Set<UUID> blacklistedEntity = ConcurrentHashMap.newKeySet();
+    // Blacklist runtime par type de block entity : si un tick async jette, on bascule TOUT ce type
+    // en synchrone pour les ticks suivants (on err vers la sûreté, on ne peut pas rejouer le tick).
+    private static final Set<String> blacklistedBETypes = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Integer> portalTickSyncMap = new ConcurrentHashMap<>();
     private static final Map<String, Set<WeakReference<Thread>>> mcThreadTracker = new ConcurrentHashMap<>();
 
@@ -307,6 +315,103 @@ public class ParallelProcessor {
         // La boucle while ci-dessus a déjà drainé tout le travail en attente.
     }
 
+    // ========== FRONT B (PROTOTYPE) : BLOCK ENTITY TICKING ==========
+
+    /**
+     * Point d'entrée routé depuis le mixin sur {@code Level.tickBlockEntities()}.
+     * Calqué sur {@link #callEntityTick}. Si le type n'est pas whitelisté (ou flag off),
+     * on exécute le tick vanilla synchrone à l'identique.
+     */
+    public static void callBlockEntityTick(Level level, TickingBlockEntity bte) {
+        if (isShuttingDown || AsyncConfig.isDisabled || !AsyncConfig.isAsyncBEEnabled || level.isClientSide()) {
+            bte.tick();
+            return;
+        }
+
+        String type;
+        try {
+            type = bte.getType(); // = BlockEntityType registry id, ex. "create:mechanical_press"
+        } catch (Throwable t) {
+            bte.tick();
+            return;
+        }
+
+        if (shouldTickBESynchronously(type)) {
+            bte.tick();
+            return;
+        }
+
+        if (!tickPool.isShutdown() && !tickPool.isTerminated()) {
+            final String beType = type;
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() ->
+                    performAsyncBlockEntityTick(bte), tickPool
+            ).exceptionally(e -> {
+                LOGGER.error("Error in async block entity tick (type {}), blacklisting type for synchronous ticking", beType, e);
+                blacklistedBETypes.add(beType);
+                return null;
+            });
+            beTaskQueue.add(future);
+        } else {
+            bte.tick();
+        }
+    }
+
+    public static boolean shouldTickBESynchronously(String type) {
+        if (AsyncConfig.isDisabled || !AsyncConfig.isAsyncBEEnabled) {
+            return true;
+        }
+        if (type == null || blacklistedBETypes.contains(type)) {
+            return true;
+        }
+        return !AsyncConfig.isBlockEntityParallel(type);
+    }
+
+    private static void performAsyncBlockEntityTick(TickingBlockEntity bte) {
+        currentBlockEntities.incrementAndGet();
+        try {
+            bte.tick();
+        } finally {
+            currentBlockEntities.decrementAndGet();
+        }
+    }
+
+    /**
+     * Barrière injectée à la fin de {@code Level.tickBlockEntities()} : draine toutes les
+     * tâches BE soumises pendant la boucle. Mirroir de {@link #postEntityTick()}.
+     */
+    public static void postBlockEntityTick() {
+        if (AsyncConfig.isDisabled || !AsyncConfig.isAsyncBEEnabled) return;
+
+        List<CompletableFuture<?>> tasks = new ArrayList<>();
+        CompletableFuture<?> future;
+        while ((future = beTaskQueue.poll()) != null) {
+            tasks.add(future);
+        }
+
+        if (tasks.isEmpty()) {
+            return;
+        }
+
+        CompletableFuture<Void> allTasksFuture = CompletableFuture.allOf(
+                tasks.toArray(new CompletableFuture[0])
+        );
+
+        while (!allTasksFuture.isDone()) {
+            boolean didWork = false;
+            for (ServerLevel world : server.getAllLevels()) {
+                try {
+                    didWork |= world.getChunkSource().pollTask();
+                } catch (java.util.NoSuchElementException ignored) {
+                    // cf. postEntityTick() : runTask() -> queue.remove() peut lever si vide
+                }
+            }
+
+            if (!didWork) {
+                Thread.onSpinWait();
+            }
+        }
+    }
+
     public static void stop() {
         isShuttingDown = true;
 
@@ -318,6 +423,10 @@ public class ParallelProcessor {
         CompletableFuture<Void> sf;
         while ((sf = spawnQueue.poll()) != null) {
             remaining.add(sf);
+        }
+        CompletableFuture<?> bf;
+        while ((bf = beTaskQueue.poll()) != null) {
+            remaining.add(bf);
         }
 
         if (!remaining.isEmpty()) {
@@ -335,6 +444,7 @@ public class ParallelProcessor {
 
         AsyncConfig.clearCaches();
         blacklistedEntity.clear();
+        blacklistedBETypes.clear();
         portalTickSyncMap.clear();
     }
 

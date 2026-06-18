@@ -71,6 +71,7 @@
     "world.CollectingNeighborUpdaterMixin",
     "world.DistanceManagerMixin",
     "world.ExplosionAccessor",
+    "world.LevelBlockEntityTickMixin",
     "world.LevelChunkMixin",
     "world.LevelMixin",
     "world.LevelTicksMixin",

@@ -73,6 +73,8 @@ public class StatsCommand {
         boolean enabled = !AsyncConfig.disabled.getValue();
         boolean asyncSpawn = AsyncConfig.enableAsyncSpawn.getValue();
         boolean asyncRandomTicks = AsyncConfig.enableAsyncRandomTicks.getValue();
+        boolean asyncBE = AsyncConfig.enableAsyncBE.getValue();
+        int beWhitelist = AsyncConfig.parallelBlockEntities.getValue().size();
 
         MutableComponent message = prefix.copy()
                 .append(Component.literal("Performance Statistics").withStyle(ChatFormatting.GOLD))
@@ -88,6 +90,11 @@ public class StatsCommand {
                 .append(Component.literal("\nAsync Random Ticks: ").withStyle(ChatFormatting.WHITE))
                 .append(Component.literal(asyncRandomTicks ? "Enabled" : "Disabled")
                         .withStyle(asyncRandomTicks ? ChatFormatting.GREEN : ChatFormatting.RED))
+
+                .append(Component.literal("\nAsync Block Entities (Front B): ").withStyle(ChatFormatting.WHITE))
+                .append(Component.literal(asyncBE ? "Enabled" : "Disabled")
+                        .withStyle(asyncBE ? ChatFormatting.GREEN : ChatFormatting.RED))
+                .append(Component.literal(" (" + beWhitelist + " whitelisted)").withStyle(ChatFormatting.GRAY))
 
                 .append(Component.literal("\nMSPT: ").withStyle(ChatFormatting.WHITE))
                 .append(Component.literal(DECIMAL_FORMAT.format(mspt) + "ms").withStyle(getMsptColor(mspt)))

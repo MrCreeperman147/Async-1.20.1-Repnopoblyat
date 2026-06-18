@@ -19,6 +19,8 @@ public class AsyncConfigForge {
     private static final ForgeConfigSpec.ConfigValue<Boolean> enableAsyncSpawnLocal;
     private static final ForgeConfigSpec.ConfigValue<Boolean> enableAsyncRandomTicksLocal;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> unsupportedModsLocal;
+    private static final ForgeConfigSpec.ConfigValue<Boolean> enableAsyncBELocal;
+    private static final ForgeConfigSpec.ConfigValue<List<? extends String>> parallelBlockEntitiesLocal;
 
     static {
         BUILDER.push("Async Config");
@@ -56,6 +58,24 @@ public class AsyncConfigForge {
                         obj -> obj instanceof String
                 );
 
+        enableAsyncBELocal = BUILDER.comment("""
+                        [PROTOTYPE - Front B] Enables parallel ticking of block entities (machines).
+                        HIGH RISK: only enable on a TEST world with backups. Keep false in production.
+                        When false, block entity ticking stays 100% vanilla.""")
+                .define(enableAsyncBE.getKey(), enableAsyncBE.getValue());
+
+        parallelBlockEntitiesLocal = BUILDER.comment("""
+                        [PROTOTYPE - Front B] WHITELIST of block entity types allowed to tick in parallel.
+                        Only used when enableAsyncBlockEntities = true. Empty = nothing runs async (safe).
+                          - 'minecraft:furnace' = a specific block entity type
+                          - 'minecraft:*'       = all block entity types in a namespace
+                        Start with one isolable, neighbour-independent family and measure with spark.""")
+                .defineListAllowEmpty(
+                        parallelBlockEntities.getKey(),
+                        () -> new ArrayList<>(parallelBlockEntities.getValue()),
+                        obj -> obj instanceof String
+                );
+
         BUILDER.pop();
         SPEC = BUILDER.build();
         LOGGER.info("Configuration initialized.");
@@ -67,6 +87,8 @@ public class AsyncConfigForge {
         enableAsyncSpawn.setValue(enableAsyncSpawnLocal.get());
         enableAsyncRandomTicks.setValue(enableAsyncRandomTicksLocal.get());
         unsupportedMods.setValue(new ArrayList<>(unsupportedModsLocal.get()));
+        enableAsyncBE.setValue(enableAsyncBELocal.get());
+        parallelBlockEntities.setValue(new HashSet<>(parallelBlockEntitiesLocal.get()));
 
         List<? extends String> entries = synchronizedEntitiesLocal.get();
         Set<String> entities = new HashSet<>();
@@ -87,6 +109,8 @@ public class AsyncConfigForge {
         enableAsyncRandomTicksLocal.set(enableAsyncRandomTicks.getValue());
         synchronizedEntitiesLocal.set(new ArrayList<>(synchronizedEntities.getValue()));
         unsupportedModsLocal.set(new ArrayList<>(unsupportedMods.getValue()));
+        enableAsyncBELocal.set(enableAsyncBE.getValue());
+        parallelBlockEntitiesLocal.set(new ArrayList<>(parallelBlockEntities.getValue()));
 
 
         SPEC.save();
