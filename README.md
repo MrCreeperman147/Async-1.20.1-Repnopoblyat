@@ -1,92 +1,53 @@
-<div align="center">
+# Repnopti — optimisation serveur pour « Terres de droite V8 »
 
-# Async 1.20.1 - Minecraft Entity Multi-Threading Mod ⚙️
+Mod de performance Forge **1.20.1 / 47.4.10** pour le modpack *Terres de droite V8* (284 mods).
+Socle technique : base **Async** (multithreading d'entités, fork Repnopoblyat) adaptée à ce pack, point de départ vers une optimisation plus large du tick serveur.
 
-</div>
+## TL;DR — résultat de l'analyse spark
 
-**Async** is a Forge mod for Minecraft 1.20.1 that improves entity performance by processing them in parallel across multiple CPU cores and threads.
+Le serveur tourne à **~15 TPS** (au lieu de 20) avec un **CPU à ~8,5 %** : goulet **mono-thread** caractérisé.
+Mais le temps part à **70 % dans le ticking des _block entities_** (machines), pas dans les entités/mobs (< 1 %).
 
-## ⚠️ Important
+➡️ Conséquence : le multithreading d'entités (Async) n'est **pas** le levier principal ici. Voir l'analyse complète :
 
-**Async** is currently in alpha and is experimental. It may cause incorrect entity behavior or crashes. Always back up your world before installing.
-**This fork is modified for personnal use.**
+- **[`docs/ANALYSE_PERFORMANCE.md`](docs/ANALYSE_PERFORMANCE.md)** — diagnostic complet, chiffres, plan en 3 fronts.
+- **[`docs/FRONT_A_ACTIONS.md`](docs/FRONT_A_ACTIONS.md)** — ⭐ actions concrètes (fichier/clé/valeur exacts) tirées des vraies configs du pack. À appliquer en premier.
+- **[`docs/CONFIG_SERVEUR.md`](docs/CONFIG_SERVEUR.md)** — vue d'ensemble plus légère du Front A.
 
----
+## Plan en 3 fronts (résumé)
 
-## 💡 Key Benefits
+| Front | Cible | Gain | Risque | État |
+|---|---|---|---|---|
+| **A** | Réduire la charge machines (config, in-game) | Sûr et immédiat | Nul | Documenté → à appliquer |
+| **B** | Paralléliser les block entities | Le vrai levier (70 %) | **Élevé** | Roadmap ci-dessous |
+| **C** | Async entités, adapté au pack | Mineur (mobs < 1 %) | Faible | **Fait** |
 
-- ⚡ **Improved TPS** — Maintains stable tick times even with large numbers of entities.
-- 🚀 **Multithreading** — Distributes entity ticking across all available CPU cores using a `ForkJoinPool`.
-- 🔒 **Safe fallback** — Entities that are incompatible with async processing are automatically kept on the main thread. Known incompatible mods (configurable via `unsupportedMods`) have their entire namespace synchronized on startup.
-- 🎲 **Async Random Ticks** *(Experimental)* — Processes chunk random ticks asynchronously for additional performance gains.
+## Ce qui a déjà été adapté (Front C)
 
----
+- `gradle.properties` → `forge_version=47.4.10` (aligné sur le modpack).
+- `AsyncConfig.java` → liste `unsupportedMods` élargie : tous les mods à entités complexes (Create & addons, Immersive Vehicles, TaCZ/armes, boss à IA custom…) forcés sur le thread principal. Quasi gratuit en perf ici, gros gain de stabilité.
 
-## 📊 Performance Comparison (9000 Villagers)
+> Le reste du code Async (moteur `ForkJoinPool`, mixins, commandes `/async`) est conservé tel quel depuis la base existante.
 
-> ⚠️ Benchmark run on 1.21.4 — results on 1.20.1 may differ.
+## Roadmap — Front B (parallélisation block entities)
 
-| Configuration               | TPS  | MSPT   |
-|-----------------------------|------|--------|
-| **Lithium + Async**         | 20   | 41.8   |
-| **Lithium (without Async)** | 4.4  | 225.4  |
-| **Purpur**                  | 5.72 | 176.18 |
+Le code Async fournit déjà la plomberie (`ForkJoinPool`, suivi de threads, fallback synchrone, infra mixin, collections concurrentes). L'extension prudente consisterait à :
 
-<details>
-<summary>Test configuration</summary>
+1. Prototyper sur **une seule famille** de block entities à faible risque (machines « consommatrices » sans interaction de voisinage intra-tick), Create/AE2/Mekanism restant sur le thread principal.
+2. Mesurer spark avant/après sur **monde de test** avec sauvegardes.
+3. Élargir mod par mod uniquement après tests de non-régression.
 
-- **Processor**: AMD Ryzen 9 7950X3D
-- **RAM**: 64 GB (16 GB allocated to the server)
-- **Minecraft Version**: 1.21.4
-- **Entities**: 9000 Villagers
-- **Mods**: Concurrent Chunk Management Engine, Fabric API, FerriteCore, Lithium, ScalableLux, ServerCore, StackDeobfuscator, TT20, Tectonic, Very Many Players, Fabric Carpet
+⚠️ La parallélisation des block entities avec Create + AE2 + Mekanism est intrinsèquement risquée (accès concurrents monde/capabilities/réseaux). À ne jamais déployer en prod sans environnement de test dédié.
 
-</details>
+## Build
 
----
+```bash
+./gradlew build      # jar dans build/libs/
+```
 
-## ⚠️ Incompatible Mods (1.20.1)
+Projet Forge 1.20.1, Java 17, Mixin 0.8.5 + MixinExtras + MixinSquared.
 
-Entities from incompatible mods can be forced onto the main thread via the `synchronizedEntities` config or the `/async config synchronizedEntities add` command. Entire mod namespaces can be synchronized with the `modid:*` wildcard.
+## Crédits
 
-The `unsupportedMods` list in `async.toml` auto-synchronizes a mod's full namespace on startup if the mod is detected. It defaults to `["create", "fowlplay"]`.
-
-*Found an incompatible mod? Please report it on [this fork's GitHub](https://github.com/MrCreeperman147/Async-1.20.1-Repnopoblyat/issues), not on the upstream tracker.*
-
----
-
-## 🔧 Commands
-
-All commands require operator level 4 unless otherwise noted.
-
-**Config**
-- `/async config toggle` — Enable or disable Async at runtime (no restart needed).
-- `/async config reload` — Reload `async.toml` from disk without restarting.
-- `/async config setAsyncEntitySpawn <true|false>` — Enable or disable parallel mob spawn processing. **Not compatible with Carpet mod's `lagFreeSpawning` rule.**
-- `/async config setAsyncRandomTicks <true|false>` — Enable or disable async random tick processing *(experimental)*.
-- `/async config synchronizedEntities` — List all currently synchronized entities.
-- `/async config synchronizedEntities add <entity|namespace:*>` — Force an entity type or an entire mod namespace onto the main thread.
-- `/async config synchronizedEntities remove <entity|namespace:*>` — Remove an entity type or namespace from the synchronized list.
-
-**Stats** *(available to all players)*
-- `/async stats` — Show current status: enabled state, MSPT, thread count, async entity ratio.
-- `/async stats entity` — Show per-dimension entity counts (sync vs async).
-- `/async stats entity <n>` — Show the top `n` entity types by count, with their sync/async status.
-
----
-
-## 📥 Download
-
-Available at [Releases](https://github.com/MrCreeperman147/Async-1.20.1-Repnopoblyat/releases).
-
----
-
-## 📭 Feedback
-
-Use this fork's [issue tracker](https://github.com/MrCreeperman147/Async-1.20.1-Repnopoblyat/issues) for bugs specific to 1.20.1.
-
-
----
-
-## 🙌 Acknowledgements
-Forked from [Async-1.20.1](https://github.com/Bliss-tbh/Async-1.20.1), based on [MCMTFabric](https://modrinth.com/mod/mcmtfabric), itself based on [JMT-MCMT](https://github.com/jediminer543/JMT-MCMT). Thanks to Grider, jediminer543, and all contributors to the upstream Async project.
+Socle Async : Axalotl, Alchemy, Bliss, FurryMileon, Grider, jediminer543, MrCreeperman147 — basé sur MCMTFabric / JMT-MCMT.
+Adaptation modpack & analyse de performance : projet Repnopti. Licence : CC0-1.0 (voir `LICENSE`).
